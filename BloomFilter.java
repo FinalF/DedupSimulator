@@ -175,7 +175,7 @@ public class BloomFilter<E> implements Serializable {
                 int h = 0;
                 for (int j = (i*4); j < (i*4)+4; j++) {
                     h <<= 8;
-                    h |= ((int) digest[j]) & 0xFF;
+                    h |= digest[j] & 0xFF;
                 }
                 result[k] = h;
                 k++;
@@ -254,8 +254,8 @@ public class BloomFilter<E> implements Serializable {
      */
     public double getFalsePositiveProbability(double numberOfElements) {
         // (1 - e^(-k * n / m)) ^ k
-        return Math.pow((1 - Math.exp(-k * (double) numberOfElements
-                        / (double) bitSetSize)), k);
+        return Math.pow((1 - Math.exp(-k * numberOfElements
+                        / bitSetSize)), k);
 
     }
 

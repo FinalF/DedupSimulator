@@ -46,7 +46,7 @@ public class ElasticDedup {
 	public static PrintWriter resultRecord; 
 	public static double initialTotal = 0;
 	public static double initialDUp = 0;
-	public static long storageLimit = 400*1024*1024; //400MB
+//	public static long storageLimit = 400*1024*1024; //400MB
 	
 	public static int times=10;
 	
@@ -235,7 +235,7 @@ public class ElasticDedup {
 						i++;
 						if(i < args.length){
 							indexEntryNum = Long.parseLong(args[i]);
-							storageLimit = indexEntryNum*chunksize*1024;
+//							storageLimit = indexEntryNum*chunksize*1024;
 						}else{System.out.println("PLS input the initial number of index entries");System.exit(1);}
 					}else{System.out.println("PLS input the trigger percentage for downsampling");
 					System.exit(0);
@@ -251,7 +251,7 @@ public class ElasticDedup {
 						i++;
 						if(i < args.length){
 							indexEntryNum = Long.parseLong(args[i]);
-							storageLimit = indexEntryNum*chunksize*1024;
+//							storageLimit = indexEntryNum*chunksize*1024;
 							i++;
 							
 										if(i < args.length){
@@ -637,7 +637,7 @@ else{
 		System.out.println("Total chunks are: " + totalChunkNum
 							+ "\nsamplingrate is: " + (double)1/newR
 							+ "\nEstimated ratio is: " + estiRatio
-							+ "\nRequired normalized ratio is: " + (double)requiredRatio
+							+ "\nRequired normalized ratio is: " + requiredRatio
 							+ "\nCurrent normalized ratio is: " + measuredRatio);	
 		System.out.println("The amount of evicted chunks is: " +(double)1/newR*totalChunkNum*estiRatio*(requiredRatio - measuredRatio));
 		double evict = (double)1/newR*totalChunkNum*estiRatio*(requiredRatio - measuredRatio);
@@ -673,6 +673,10 @@ else{
 					+RdP.getSpaceReclaimed()+ " entries in the index have been removed"
 					+"\nOriginal index size is: "+ indexsize
 					+"\nCurrent index size is; "+ (RdP.getNewIndexSize()+RdP.getIndexSize()-RdP.getSpaceReclaimed()));
+		/*adjust trigger value*/
+		if((double)dup/total < requiredRatio*getEstimateRatio(1)){
+		requiredRatio = (double)dup/total/getEstimateRatio(1); 
+		}
 		
 		System.out.println("The total data is: "+total+"\nThe extra duplicates are: "+RdP.getExtradup()+
 						"\nThe duplication rate is : " + (double)(dup)/total*100 +"%\n" +
@@ -815,13 +819,13 @@ else{
 //		for(int i = 1; i <=incomingFile.length; i++){
 		
 		for(int segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
-//			if(index.size() >= downSampleTrig*indexEntryNum){
-			while((total-dup)>= downSampleTrig*storageLimit){
-				   sampleRate = 2*sampleRate;
-				   storageLimit = storageLimit*2;
+//			while((total-dup)>= downSampleTrig*storageLimit){
+			while(index.size()>=downSampleTrig*indexEntryNum){
+			   sampleRate = 2*sampleRate; //this is downsampleing
+//				   storageLimit = storageLimit*2;
 				
-				resultRecord.println("The current storage size is: " + (total-dup)+
-						  "\nIt's approaching " + downSampleTrig + "of supported: "+ storageLimit);
+				resultRecord.println("The current index size is: " + index.size()+
+						  "\nIt's approaching " + downSampleTrig + "of supported index capacity: "+ indexEntryNum);
 				resultRecord.println("Index is gonna be full, downsampling...");
 				resultRecord.println("Index size before downsampling: "+ index.size());
 				indexShrink();
@@ -916,12 +920,12 @@ else{
 //		for(int i = 1; i <=incomingFile.length; i++){
 		for(int segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
 //			if(index.size() >= downSampleTrig*indexEntryNum){
-			while((total-dup)>= downSampleTrig*storageLimit){
-				   sampleRate = 2*sampleRate;
-				   storageLimit = storageLimit*2;
+			while(index.size()>=downSampleTrig*indexEntryNum){
+				   sampleRate = 2*sampleRate;  //downsampling 
+//				   storageLimit = storageLimit*2;
 				
-				resultRecord.println("The current storage size is: " + (total-dup)+
-						  "\nIt's approaching " + downSampleTrig + "of supported: "+ storageLimit);
+				resultRecord.println("The current index size is: " + index.size()+
+						  "\nIt's approaching " + downSampleTrig + "of supported index capacity: "+ indexEntryNum);
 				resultRecord.println("Index is gonna be full, downsampling...");
 				resultRecord.println("Index size before downsampling: "+ index.size());
 				indexShrink();
@@ -970,7 +974,7 @@ else{
 								+"current dedup rate is: "+ (double)dup/total*100+"% ,less than "+requiredRatio+" of estimated rate "+ getEstimateRatio(1)*100+"% "
 								+"The new sampling rate is: " + (double)1/sampleRate
 								+ "\nThe estimated dedup rate is : " + getEstimateRatio(1)*100 + "%"
-								+"\nCurrent dedup rate is: "+ dup/total*100 + "%"
+								+"\nCurrent dedup rate is: "+ (double)dup/total*100 + "%"
 								+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
 						
 					System.out.println("Resampling ... The new sampling rate is: " + (double)1/sampleRate
@@ -979,7 +983,7 @@ else{
 					resampleProcess(sampleRate);	
 						
 					if(index.size()>=indexEntryNum/2){
-						indexEntryNum = (long) (migratePara*indexEntryNum); //increase the index size(add RAM size)
+						indexEntryNum = (migratePara*indexEntryNum); //increase the index size(add RAM size)
 					}//resultRecord.println("\nThe current index entries are "+indexEntryNum+" ,it's " + migrateTrig +" times of original one");
 					}
 		}
@@ -1077,7 +1081,7 @@ static void consecutiveDownSample(int segmentNo, int R,int cacheSizeControl,int 
 		resampleProcess(R);	
 			
 		if(index.size()>=indexEntryNum/2){
-			indexEntryNum = (long) (migratePara*indexEntryNum); //increase the index size(add RAM size)
+			indexEntryNum = (migratePara*indexEntryNum); //increase the index size(add RAM size)
 		}//resultRecord.println("\nThe current index entries are "+indexEntryNum+" ,it's " + migrateTrig +" times of original one");
 		}
 	}

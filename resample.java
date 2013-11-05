@@ -69,7 +69,7 @@ resample(Map<String, long[]> index,int M,Map<String, Long> cache,
 	this.bloomfilterRecord = bloomfilterRecord;
 	this.chunkSize =chunkSize;
 	this.segSize = segSize;
-	 chunkSizeRecord = new int[(int) segSize*1024/chunkSize];
+	 chunkSizeRecord = new int[segSize*1024/chunkSize];
     this.dirFile = new File(reSampleStorageFolder+"_"+newSamplingRate);
      dirFile.mkdir();
      delteEntry = 1;
@@ -261,7 +261,7 @@ long getExtradup(){
 }
 
 long getSpaceReclaimed(){
-	return (afterIndex-currentIndex);
+	return (currentIndex - afterIndex);
 }
 
 long getLowhit(){

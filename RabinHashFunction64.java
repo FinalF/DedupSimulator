@@ -158,14 +158,14 @@ public final class RabinHashFunction64 implements Serializable {
      ^ table70[(int) ((w >>> 40) & 0xFF)]
      ^ table78[(int) ((w >>> 48) & 0xFF)]
      ^ table84[(int) ((w >>> 56) & 0xFF)]
-     ^ (long) (A[s] << 56)
-     ^ (long) (A[s + 1] << 48)
-     ^ (long) (A[s + 2] << 40)
-     ^ (long) (A[s + 3] << 32)
-     ^ (long) (A[s + 4] << 24)
-     ^ (long) (A[s + 5] << 16)
-     ^ (long) (A[s + 6] << 8)
-     ^ (long) (A[s + 7]);
+     ^ (A[s] << 56)
+     ^ (A[s + 1] << 48)
+     ^ (A[s + 2] << 40)
+     ^ (A[s + 3] << 32)
+     ^ (A[s + 4] << 24)
+     ^ (A[s + 5] << 16)
+     ^ (A[s + 6] << 8)
+     ^ (A[s + 7]);
   }
   return w;
  }
@@ -195,7 +195,7 @@ public final class RabinHashFunction64 implements Serializable {
      ^ ((long) (A[s] & 0xFFFF) << 48)
      ^ ((long) (A[s + 1] & 0xFFFF) << 32)
      ^ ((long) (A[s + 2] & 0xFFFF) << 16)
-     ^ ((long) (A[s + 3] & 0xFFFF));
+     ^ (A[s + 3] & 0xFFFF);
   }
   return w;
  }
@@ -262,7 +262,7 @@ public final class RabinHashFunction64 implements Serializable {
      ^ table78[(int) ((w >>> 48) & 0xFF)]
      ^ table84[(int) ((w >>> 56) & 0xFF)]
      ^ ((long) (A[s] & 0xFFFFFFFF) << 32)
-     ^ (long) (A[s + 1] & 0xFFFFFFFF);
+     ^ (A[s + 1] & 0xFFFFFFFF);
   }
   return w;
  }
