@@ -299,13 +299,7 @@ else{
 		
 		
 		
-		
 
-		//		
-//		System.out.println("Choose the model:\n" +
-//						"'1': chunk the inputfile\n" +
-//						"'2': segment and sampling chunks\n" +
-//						"'3': deduplication");
 			switch(modeChoice){
 			case 1:
 				System.out.println("Chunk Mode: \nThe chunk size is: " + chunksize
@@ -435,6 +429,9 @@ else{
 	        
 	        
 		case 2:
+			/*
+			 * segmentation
+			 */
 			System.out.println("Segmentation Mode: \nThe chunk size is: " + chunksize
 					+ "\nThe segment size is: " + segsize
 					+ "\nProcessing " + waveChoice +" st/nd wave of data");		
@@ -483,43 +480,46 @@ else{
 				+ "\nProcessing 1 st wave of data"
 				+"\nThe sampling rate is: " + (double)1/sampleRate);	
 		dedupProcess(1);
-		
-		if(reSampleTag ==true){
-		/*
-		 * Prat II, change the sampling rate, resample and rededup 
-		 */
-			resultRecord.println("\nResampling ... The new sampling rate is: " + (double)1/newSampleRate
-					+ "\nThe expected dup reduction ratio is: " + expectRaio
-					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
-			
-			System.out.println("Resampling ... The new sampling rate is: " + (double)1/newSampleRate
-					+ "\nThe expected dup reduction ratio is: " + expectRaio
-					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
-			resampleProcess(newSampleRate);	
-		}else{
-			System.out.println("No resampling");
-		}
-		/*
-		 * Do the deduplication again
-		 */
-		if(secWave == true){
-			
-			resultRecord.println("\nDeduplication Mode: \nThe chunk size is: " + chunksize
-					+ "\nThe segment size is: " + segsize
-					+ "\nProcessing 2 nd wave of data"
-					+"\nThe new sampling rate is: " + (double)1/newSampleRate);
-			
-			System.out.println("Deduplication Mode: \nThe chunk size is: " + chunksize
-					+ "\nThe segment size is: " + segsize
-					+ "\nProcessing 2 nd wave of data"
-					+"\nThe new sampling rate is: " + (double)1/newSampleRate);
-			
-		dedupProcess(2);
-		}else if(secWave == false){
-			System.out.println("No 2 nd wave");
-		}				
+//		
+//		if(reSampleTag ==true){
+//		/*
+//		 * Prat II, change the sampling rate, resample and rededup 
+//		 */
+//			resultRecord.println("\nResampling ... The new sampling rate is: " + (double)1/newSampleRate
+//					+ "\nThe expected dup reduction ratio is: " + expectRaio
+//					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
+//			
+//			System.out.println("Resampling ... The new sampling rate is: " + (double)1/newSampleRate
+//					+ "\nThe expected dup reduction ratio is: " + expectRaio
+//					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
+//			resampleProcess(newSampleRate);	
+//		}else{
+//			System.out.println("No resampling");
+//		}
+//		/*
+//		 * Do the deduplication again
+//		 */
+//		if(secWave == true){
+//			
+//			resultRecord.println("\nDeduplication Mode: \nThe chunk size is: " + chunksize
+//					+ "\nThe segment size is: " + segsize
+//					+ "\nProcessing 2 nd wave of data"
+//					+"\nThe new sampling rate is: " + (double)1/newSampleRate);
+//			
+//			System.out.println("Deduplication Mode: \nThe chunk size is: " + chunksize
+//					+ "\nThe segment size is: " + segsize
+//					+ "\nProcessing 2 nd wave of data"
+//					+"\nThe new sampling rate is: " + (double)1/newSampleRate);
+//			
+//		dedupProcess(2);
+//		}else if(secWave == false){
+//			System.out.println("No 2 nd wave");
+//		}				
 		resultRecord.close();
 		break;
+		
+		
+		
 	/*
 	 * case4: using only downsampling when the index is approaching full, entry mod 2 = 0
 	 */
@@ -543,6 +543,9 @@ else{
 		dedupWithDownsample();
 		resultRecord.close();
 		break;
+		
+		
+		
 	/*
 	 * case5: the solution, downsampling by eliminate entries with lower counter values
 	 * 		  while the dedup rate drops below the requiered value, increase sampling rate
