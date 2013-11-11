@@ -26,18 +26,18 @@ public class ElasticDedup {
 	public static int migratePara = 2; // the new sampling rate is migratePara times of original one
 	public static boolean onlyDownsample = false;
 	public static boolean downsampleWithMigrate = false;
-	
 	public static int currentHighestR = 1; //when resample, the new rate is larger than this, migrate, otherwise, current memory is enough
 	public static boolean migrate = false;
 	
 	public static int M = 1; //number of containers to be tracked in the index (num of segments to be compared)
-	public static double expectRaio = 4;  //used to calculate the number of samples in the estimation 3:1,5:1
+//	public static double expectRaio = 4;  //used to calculate the number of samples in the estimation 3:1,5:1
+	public static int sampleNumPerSeg = 16;
+	public static int sampleTotal = 0;
 	public static double requiredRatio = 0.9;//when dedup rate falls below this percentage of estimated dedup rate,migrate
 	public static int sampleRate = 1;
 	public static int newSampleRate = 20;
 	public static int chunksize = 8;
 	public static int segsize = 16;
-	public static boolean reSampleTag = false;  //tag of determine whether to resample the first wave of data : -r
 	public static boolean secWave = false;  //tag of determine whether to continue processing the second wave of data : -F
 	public static int modeChoice = 0;
 	public static long indexSize=-1;
@@ -91,6 +91,7 @@ public class ElasticDedup {
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
 	
+/*----------------------------------Read in parameters----------------------------------------*/		
 			int i = 0;
 			String arg = args[i];
 //			System.out.println("The first input is: " + arg);
@@ -153,8 +154,8 @@ public class ElasticDedup {
 				}
 					i++;
 				if(i < args.length){
-					expectRaio = Double.parseDouble(args[i]);
-					System.out.println("The expected Ratio is: " + expectRaio);
+					sampleNumPerSeg = Integer.parseInt(args[i]);
+					System.out.println("samples for estimation per segment is: " + sampleNumPerSeg);
 				}else{System.out.println("Expected ratio for estimation required");
 					}
 					i++;
@@ -181,9 +182,15 @@ public class ElasticDedup {
 				}else{System.out.println("Sampling Rate required (Input an integer 1/R)");
 				}
 				i++;
+				
 				if(i < args.length){
-					expectRaio = Double.parseDouble(args[i]);
-					System.out.println("The expected Ratio is: " + expectRaio);
+					migratePara = Integer.parseInt(args[i]);
+				}else{System.out.println("PLS input the fraction of new sampling rate compared with original one");System.exit(1);}
+		
+				i++;
+				if(i < args.length){
+					sampleNumPerSeg = Integer.parseInt(args[i]);
+					System.out.println("The expected Ratio is: " + sampleNumPerSeg);
 					}else{System.out.println("Expected ratio for estimation required");
 					}
 				i++;
@@ -248,42 +255,13 @@ public class ElasticDedup {
 						if(i < args.length){
 							indexEntryNum = Long.parseLong(args[i]);
 //							storageLimit = indexEntryNum*chunksize*1024;
-							i++;
-							
-										if(i < args.length){
-											migratePara = Integer.parseInt(args[i]);
-										}else{System.out.println("PLS input the fraction of new sampling rate compared with original one");System.exit(1);}
-								
 						}else{System.out.println("PLS input the initial number of index entries");System.exit(1);}
 					}else{System.out.println("PLS input the trigger percentage for downsampling");
 					System.exit(0);
 					}
 					i++;
 				}
-				
-				
-				if(i < args.length && args[i].equals("-r")){
-				reSampleTag = true;
-				i++;
-				if(i < args.length){
-				newSampleRate = Integer.parseInt(args[i]);
-				}else{System.out.println("New Sampling Rate required (Input an integer 1/R)");
-				System.exit(0);
-				}
-				i++;
-				}else{
-				reSampleTag = false; 
-				System.out.println("No resampling"); 
-				}
-				if(i < args.length && args[i].equals("-F")){
-					secWave = true;
-					i++;
-					if(i < args.length){
-					newSampleRate = Integer.parseInt(args[i]);
-					}else{System.out.println("New Sampling Rate required (Input an integer 1/R)");
-					}				
-				}else{secWave = false; System.out.println("No processing on the 2 nd wave of data"); 
-				}
+								
 				break;
 				}			
 else{
@@ -293,9 +271,8 @@ else{
 		}	
 	
 		
+/*--------------------------------------------mode choice----------------------------------------------*/		
 		
-		
-
 			switch(modeChoice){
 			case 1:
 				System.out.println("Chunk Mode: \nThe chunk size is: " + chunksize
@@ -469,7 +446,7 @@ else{
 		
 		
 	/*
-	 * case4: using only downsampling when the index is approaching full, entry mod 2 = 0
+	 * case4: using only downsampling when the index is approaching full, entry mod \Delta = 0
 	 */
 	case 4:
 		System.out.println("Now the mode with only downsampling");
@@ -533,16 +510,17 @@ else{
 				+ "\nThe segment size is: " + segsize);
 		File[] incomingFile = null;
 		incomingFile = new File(outputpath).listFiles();
-		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
-		resultRecord.println("Pick out total " + sampleNum + " samples for estimation; total "+times+" times");	
-    	System.out.println("Pick out total " + sampleNum + " samples for estimation");
-		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment	
+//		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
+		resultRecord.println("Pick out  " + sampleNumPerSeg + " samples per segment for estimation; total "+times+" times");	
+    	System.out.println("Pick out  " + sampleNumPerSeg + " samples per segment for estimation");
+//		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment	
 		for(int timeCount = 1; timeCount <=times; timeCount++){
 			System.out.println("The "+timeCount+" th of estimation");
 		estimateBase.clear();
 		if(estimateBase.isEmpty()){
 		int segmentNo = 1;
 		for(segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
+			sampleTotal+=sampleNumPerSeg;
 			File segFile = new File(outputpath+"/Segment_"+ segmentNo);
 			hashRecord = new String[segsize*1024/chunksize];
 			estimationCal(hashRecord,segFile,sampleNumPerSeg,estimateBase);
@@ -646,14 +624,15 @@ else{
 		initialTotal = total;
 		initialDUp = dup; 	
 		int cacheSizeControl = 0;
-		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
+//		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
-		resultRecord.println("Pick out total " + sampleNum + " samples for estimation");
+		resultRecord.println("Pick out " + sampleNumPerSeg + " samples per segment for estimation");
 		
-		System.out.println("Pick out total " + sampleNum + " samples for estimation");
-		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
+		System.out.println("Pick out " + sampleNumPerSeg + " samples persegment for estimation");
+//		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
 		
 		for(int i = 1; i <=incomingFile.length; i++){
+			sampleTotal+=sampleNumPerSeg;
 			File file = null;
 			file = new File(outputpath+"/Segment_"+ i);
 			hashRecord = new String[segsize*1024/chunksize];
@@ -681,7 +660,7 @@ else{
 		 * periodically output statistics (every 'segAmount' segments, we do one time's dedup)
 		 */
 		if(consecutiveDedup=true && i%segAmount == 0){	
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 			resultRecord.println();
 			resultRecord.println("The culmulative segments are: " + i +
 								"\nCurrent data amount is: "+total+
@@ -718,7 +697,7 @@ else{
 			
 			System.out.println("The estimated dedup rate is: " + getEstimateRatio()*100 +" %");
 			
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 	
 			matlabStatistic();
 			indexStatistic();
@@ -743,12 +722,12 @@ else{
 		initialTotal = total;
 		initialDUp = dup; 
 		int cacheSizeControl = 0;
-		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
+//		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
-		resultRecord.println("Pick out total " + sampleNum + " samples for estimation");
+		resultRecord.println("Pick out total " + sampleNumPerSeg + " samples per segment for estimation");
 		
-		System.out.println("Pick out total " + sampleNum + " samples for estimation");
-		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
+		System.out.println("Pick out total " + sampleNumPerSeg + " samples per segment for estimation");
+//		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
 		
 //		for(int i = 1; i <=incomingFile.length; i++){
 		
@@ -768,6 +747,7 @@ else{
 			}
 //			}
 //			consecutiveDownSample(segmentNo,sampleRate,cacheSizeControl,memoryPolicy,sampleNumPerSeg);
+			sampleTotal+=sampleNumPerSeg;
 			File file = null;
 			file = new File(outputpath+"/Segment_"+  segmentNo);
 			hashRecord = new String[segsize*1024/chunksize];
@@ -788,7 +768,7 @@ else{
 		total += dP.getTotal();
 		dup += dP.getDup();
 		if(consecutiveDedup=true && segmentNo%segAmount == 0){	
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 			resultRecord.println();
 			resultRecord.println("The culmulative segments are: " + segmentNo +
 								"\nCurrent data amount is: "+total+
@@ -827,7 +807,7 @@ else{
 			System.out.println("The estimated dedup rate is: " + getEstimateRatio()*100 +" %");
 //			resultRecord.println("####The dedup efficiency is: " + (double)dup/(indexEntryNum-index.size())+" dup/wasted entry");	
 			resultRecord.println("####The dedup efficiency is: " + (double)dup/(index.size())+" dup/entry slot");	
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 			/*record # of entries with different hitting number */
 			matlabStatistic();
 			indexStatistic();
@@ -847,12 +827,12 @@ else{
 		initialTotal = total;
 		initialDUp = dup; 
 		int cacheSizeControl = 0;
-		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
+//		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
-		resultRecord.println("Pick out total " + sampleNum + " samples for estimation");
+		resultRecord.println("Pick out total " + sampleNumPerSeg + " samples per segment for estimation");
 		
-		System.out.println("Pick out total " + sampleNum + " samples for estimation");
-		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
+		System.out.println("Pick out total " + sampleNumPerSeg + " samples per segment for estimation");
+//		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment
 		
 //		for(int i = 1; i <=incomingFile.length; i++){
 		for(int segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
@@ -871,6 +851,7 @@ else{
 			}
 //			}
 //			consecutiveDownSample(segmentNo,sampleRate,cacheSizeControl,memoryPolicy,sampleNumPerSeg);
+			sampleTotal+=sampleNumPerSeg;
 			File file = null;
 			file = new File(outputpath+"/Segment_"+  segmentNo);
 			hashRecord = new String[segsize*1024/chunksize];
@@ -891,7 +872,7 @@ else{
 		total += dP.getTotal();
 		dup += dP.getDup();
 		if(consecutiveDedup=true && segmentNo%segAmount == 0){	
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 			resultRecord.println();
 			resultRecord.println("The culmulative segments are: " + segmentNo +
 								"\nCurrent data amount is: "+total+
@@ -916,7 +897,6 @@ else{
 								+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
 						
 					System.out.println("Resampling ... The new sampling rate is: " + (double)1/sampleRate
-								+ "\nThe expected dup reduction ratio is: " + expectRaio
 								+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
 					resampleProcess(sampleRate);	
 						
@@ -952,7 +932,7 @@ else{
 			
 			System.out.println("The estimated dedup rate is: " + getEstimateRatio()*100 +" %");
 		/*record # of entries with different hitting number */
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 			matlabStatistic();
 			indexStatistic();
 		
@@ -988,7 +968,7 @@ static void consecutiveDownSample(int segmentNo, int R,int cacheSizeControl,int 
 	 * periodically output statistics (every 'segAmount' segments, we do one time's dedup)
 	 */
 	if(consecutiveDedup=true && segmentNo%segAmount == 0){	
-		nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size())));
+		nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
 		resultRecord.println();
 		resultRecord.println("The culmulative segments are: " + segmentNo +
 							"\nCurrent data amount is: "+total+
@@ -1017,7 +997,6 @@ static void consecutiveDownSample(int segmentNo, int R,int cacheSizeControl,int 
 					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
 			
 		System.out.println("Resampling ... The new sampling rate is: " + (double)1/R
-					+ "\nThe expected dup reduction ratio is: " + expectRaio
 					+ "\nThe user required dedup rate is: " + requiredRatio*100 + "%");
 		resampleProcess(R);	
 			
@@ -1249,7 +1228,7 @@ static long storageLoad() throws IOException{
 	
 	static void matlabStatistic(){
 		resultRecord.println("\n\n++++++++++++++++For matlab++++++++++\n");
-		resultRecord.println("Total,dup,sampleRate,index size,dedupRatio,dedupEfficiency\n");
+		resultRecord.println("Total,dup,sampleRate,index size,dedupRatio,dedupEfficiency,total num of estimations samples\n");
 		for(Node n:nodeQue){
 			resultRecord.print(n.total);
 			resultRecord.print(",");
@@ -1262,6 +1241,8 @@ static long storageLoad() throws IOException{
 			resultRecord.print(n.dedupR);
 			resultRecord.print(",");
 			resultRecord.print(n.dedupE);
+			resultRecord.println();
+			resultRecord.print(n.estN);
 			resultRecord.println();
 		}
 	}
