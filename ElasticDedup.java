@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -20,6 +21,7 @@ public class ElasticDedup {
 	 * Wang, Yufeng
 	 * 2013Spring 
 	 */
+	public static int d = 0;
 	public static double downSampleTrig=0.9; //when this percentage of index is occupied, downsample
 	public static long indexEntryNum = 100000; //The maximum size of index(2011papersolution) or initial index size
 //	public static double migrateTrig = 0.9;//when dedup rate falls below this percentage of estimated dedup rate,migrate
@@ -46,8 +48,6 @@ public class ElasticDedup {
 	public static Queue<Node> nodeQue=new LinkedList<Node>();
 	public static File[] recordFiles = new File(resultRecordFolder).listFiles();
 	public static PrintWriter resultRecord; 
-	public static double initialTotal = 0;
-	public static double initialDUp = 0;
 //	public static long storageLimit = 400*1024*1024; //400MB
 	
 	public static int times=10;
@@ -150,6 +150,7 @@ public class ElasticDedup {
 					i++;
 				if(i < args.length){
 					times = Integer.parseInt(args[i]);
+					System.out.println("Estimate "+times+" times");
 				}else{System.out.println("how many times do you want to measure accuracy of estimation");
 				}
 					i++;
@@ -512,7 +513,7 @@ else{
 		incomingFile = new File(outputpath).listFiles();
 //		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		resultRecord.println("Pick out  " + sampleNumPerSeg + " samples per segment for estimation; total "+times+" times");	
-    	System.out.println("Pick out  " + sampleNumPerSeg + " samples per segment for estimation");
+    	System.out.println("Pick out  " + sampleNumPerSeg + " samples per segment for estimation; total "+times+" times");
 //		int sampleNumPerSeg = sampleNum/incomingFile.length; // samples per segment	
 		for(int timeCount = 1; timeCount <=times; timeCount++){
 			System.out.println("The "+timeCount+" th of estimation");
@@ -525,11 +526,11 @@ else{
 			hashRecord = new String[segsize*1024/chunksize];
 			estimationCal(hashRecord,segFile,sampleNumPerSeg,estimateBase);
 			if(consecutiveDedup=true && segmentNo%segAmount == 0){	
-				resultRecord.print(getEstimateRatio()*100);
+				resultRecord.print(new DecimalFormat(".##").format(getEstimateRatio()*100) );
 				resultRecord.print(",");
 			}
 		}
-		resultRecord.print(getEstimateRatio()*100);
+		resultRecord.print(new DecimalFormat(".##").format(getEstimateRatio()*100));
 		resultRecord.println();
 		}else{
 			System.out.println("estimateBase is not empty");
@@ -621,8 +622,6 @@ else{
 		resultRecord.println("Total " + storageLoad() + " entries added into the index");
 		File[] incomingFile = null;
 		incomingFile = new File(outputpath).listFiles();
-		initialTotal = total;
-		initialDUp = dup; 	
 		int cacheSizeControl = 0;
 //		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
@@ -719,8 +718,6 @@ else{
 		resultRecord.println("Total " + storageLoad() + " entries added into the index");
 		File[] incomingFile = null;
 		incomingFile = new File(outputpath).listFiles();
-		initialTotal = total;
-		initialDUp = dup; 
 		int cacheSizeControl = 0;
 //		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
@@ -734,7 +731,7 @@ else{
 		for(int segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
 //			while((total-dup)>= downSampleTrig*storageLimit){
 			while(index.size()>=downSampleTrig*indexEntryNum){
-			   sampleRate = 2*sampleRate; //this is downsampleing
+			   sampleRate = migratePara*sampleRate; //this is downsampleing
 //				   storageLimit = storageLimit*2;
 				
 				resultRecord.println("The current index size is: " + index.size()+
@@ -824,8 +821,6 @@ else{
 		resultRecord.println("Total " + storageLoad() + " entries added into the index");
 		File[] incomingFile = null;
 		incomingFile = new File(outputpath).listFiles();
-		initialTotal = total;
-		initialDUp = dup; 
 		int cacheSizeControl = 0;
 //		int sampleNum = (int) ((Math.log(2)+Math.log(10000))/2/0.0001/Math.pow(expectRaio,2));
 		
@@ -838,6 +833,7 @@ else{
 		for(int segmentNo=1;segmentNo<=incomingFile.length;segmentNo++){
 //			if(index.size() >= downSampleTrig*indexEntryNum){
 			while(index.size()>=downSampleTrig*indexEntryNum){
+					d++;
 				   sampleRate = 2*sampleRate;  //downsampling 
 //				   storageLimit = storageLimit*2;
 				
@@ -872,7 +868,7 @@ else{
 		total += dP.getTotal();
 		dup += dP.getDup();
 		if(consecutiveDedup=true && segmentNo%segAmount == 0){	
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),estimateBase.size()));
 			resultRecord.println();
 			resultRecord.println("The culmulative segments are: " + segmentNo +
 								"\nCurrent data amount is: "+total+
@@ -901,7 +897,11 @@ else{
 					resampleProcess(sampleRate);	
 						
 					if(index.size()>=indexEntryNum/2){
-						indexEntryNum = (migratePara*indexEntryNum); //increase the index size(add RAM size)
+						double tmp=1;
+						for(int i=2; i<= d;i++){
+							tmp-=1/Math.pow(migratePara, i-1);
+						}
+						indexEntryNum =(int) (migratePara*indexEntryNum*tmp); //increase the index size(add RAM size)
 					}//resultRecord.println("\nThe current index entries are "+indexEntryNum+" ,it's " + migrateTrig +" times of original one");
 					}
 		}
@@ -932,7 +932,7 @@ else{
 			
 			System.out.println("The estimated dedup rate is: " + getEstimateRatio()*100 +" %");
 		/*record # of entries with different hitting number */
-			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),sampleTotal));
+			nodeQue.add(new Node(total,dup,(double)1/sampleRate,index.size(),(double)dup/total,(double)dup/(index.size()),estimateBase.size()));
 			matlabStatistic();
 			indexStatistic();
 		
@@ -1083,7 +1083,7 @@ static long storageLoad() throws IOException{
 			 */
 		 System.out.println("Index size before shrinking: "+index.size());
 		 resultRecord.println("Index size before shrinking: "+index.size());
-		 int max = index.size()/2;
+		 int max = index.size()/migratePara;
 		 int count = 0;	 
 		 Iterator<Entry<String, long[]>> iter = index.entrySet().iterator();
 		 while (iter.hasNext()) {
@@ -1238,10 +1238,10 @@ static long storageLoad() throws IOException{
 			resultRecord.print(",");
 			resultRecord.print(n.size);
 			resultRecord.print(",");
-			resultRecord.print(n.dedupR);
+			resultRecord.print(new DecimalFormat(".##").format(n.dedupR*100));
 			resultRecord.print(",");
-			resultRecord.print(n.dedupE);
-			resultRecord.println();
+			resultRecord.print(new DecimalFormat(".##").format(n.dedupE*100));
+			resultRecord.print(",");
 			resultRecord.print(n.estN);
 			resultRecord.println();
 		}
