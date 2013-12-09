@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Scanner;
@@ -95,8 +96,11 @@ public class dedupProcess_v2 {
 		hashRecord[i] = infor[4]; //put the hashvalue into the RAM for the following comparison
 		chunksizeRecord[i] = Integer.parseInt(infor[3]) ;
 		total += Long.parseLong(infor[3]);
-		long hashvalue = Long.parseLong(infor[4].substring(30),16);
-		if(check(hashvalue)){
+		//long hashvalue = Long.parseLong(infor[4].substring(30),16);
+		
+        BigInteger hashvalue = new BigInteger(infor[4], 16);               
+		
+		if(check(hashvalue.longValue())){
 			sampledRecord[i] = 1;
 //			System.out.println("the key(hashvalue) is: " + infor[4]);
 			if(index.containsKey(infor[4])){

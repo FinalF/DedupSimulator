@@ -308,8 +308,11 @@ else{
 	    		fileProcessing f1 = new fileProcessing(inputfile,outputDirec + inputfile.getName(),chunksize,fileInfo,ChunkMan);
 	    		f1.chunkFile();
 	        }
+	        
+	        
 	        /*To deal with limited storage problem, after processing the local files, we remove them, and then
-	         * pull files from another machine to this folder, and do the chunk again*/       
+	         * pull files from another machine to this folder, and do the chunk again*/
+	        /*
 	        try{
     		System.out.println("pull files from the remote");
 	        Process p1 = Runtime.getRuntime().exec(new String[]{"/bin/bash","-c","cd testData"});	
@@ -369,10 +372,13 @@ else{
 	    		f1.chunkFile();
 	        }
 	        }
+	        */
 	        /*file chunk finished*/
     		ChunkMan.close();
 	        fileInfo.close();
+	        
 	        /***************************************/
+	        /*
 	        Process p7 = Runtime.getRuntime().exec(new String[]{"/bin/bash","-c","cd testData"});	
 	        int tmp = p7.waitFor();
 	        System.out.println("enter testdata exit with: "+ tmp);
@@ -395,7 +401,9 @@ else{
 	        Process p11 = Runtime.getRuntime().exec(new String[]{"/bin/bash","-c","rm /home/tue86025/Desktop/DedupSimulator/testData/inputRawFiles/*"});	
 	        tmp = p11.waitFor();
 	        System.out.println("clean input folder exit with: "+ tmp);
+	        */
 	        /************************************* */
+	        
 			endtime = System.currentTimeMillis();
 	        System.out.println("The chunksize is " + chunksize + " KB. There're " + fileCount + " input files processed");
 	        System.out.println("Processing time is: " + (endtime - starttime)/1000 +" Sec");
